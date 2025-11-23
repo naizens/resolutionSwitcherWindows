@@ -124,9 +124,12 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("Monitor Tool")
-        self.geometry("460x500")
+        self.geometry("460x220")
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(6, weight=1)
+
 
         self.monitor_list = list_monitors()
         self.monitor_var = ctk.StringVar(value=self.monitor_list[0] if self.monitor_list else "")
@@ -135,28 +138,40 @@ class App(ctk.CTk):
         if not self.resolutions:
             self.resolutions = collect_resolutions()
 
-        ctk.CTkLabel(self, text="Monitor auswählen:").pack(pady=(20, 5))
+        self.chooseMonitorLabel = ctk.CTkLabel(self, text="Monitor auswählen:")
+        self.chooseMonitorLabel.grid(row=0, column=0, padx=0, pady=(5, 5), sticky="nsew")
         self.combo_monitor = ctk.CTkComboBox(
             self, values=self.monitor_list, variable=self.monitor_var, width=300,
             command=self.update_resolutions
         )
-        self.combo_monitor.pack()
+        self.combo_monitor.grid(row=0, column=1, padx=5, pady=(5, 5), sticky="nsew")
 
-        ctk.CTkLabel(self, text="Auflösung:").pack(pady=(20, 5))
+        self.chooseResLabel = ctk.CTkLabel(self, text="Auflösung:")
+        self.chooseResLabel.grid(row=1, column=0, padx=0, pady=(5, 5), sticky="nsew")
         self.res_var = ctk.StringVar()
         self.combo_res = ctk.CTkComboBox(self, values=[], variable=self.res_var, width=300)
-        self.combo_res.pack()
+        self.combo_res.grid(row=1, column=1, padx=5, pady=(5, 5), sticky="nsew")
 
-        ctk.CTkLabel(self, text="Bildwiederholrate (Hz):").pack(pady=(20, 5))
+        self.chooseHzLabel = ctk.CTkLabel(self, text="Bildwiederholrate (Hz):")
+        self.chooseHzLabel.grid(row=2, column=0, padx=0, pady=(5, 5), sticky="nsew")
         self.hz_var = ctk.StringVar()
         self.combo_hz = ctk.CTkComboBox(self, values=[], variable=self.hz_var, width=300)
-        self.combo_hz.pack()
+        self.combo_hz.grid(row=2, column=1, padx=5, pady=(5, 5), sticky="nsew")
 
-        ctk.CTkButton(self, text="Einzeln anwenden", command=self.apply_single).pack(pady=(25, 10))
-        ctk.CTkButton(self, text="iRacing Mode (Alle Monitore)", fg_color="orange", hover_color="darkorange", command=self.apply_iracing_mode).pack(pady=(5, 10))
-        ctk.CTkButton(self, text="Desktop Mode (Alle Monitore)", fg_color="green", hover_color="darkgreen", command=self.apply_desktop_mode).pack(pady=(5, 10))
-        ctk.CTkButton(self, text="Fenster minimieren", fg_color="gray", hover_color="darkgray", command=self.hide_to_tray).pack(pady=(20, 10))
-        ctk.CTkButton(self, text="Auflösungen aktualisieren", fg_color="purple", hover_color="darkmagenta",command=self.update_all_resolutions).pack(pady=(10, 10))
+        self.applySingleButton = ctk.CTkButton(self, text="Apply Single", command=self.apply_single)
+        self.applySingleButton.grid(row=3, column=1, padx=5, pady=(5, 5), sticky="nsew")
+        
+        self.updateResolutionsButton = ctk.CTkButton(self, text="Update Resolutions", fg_color="purple", hover_color="darkmagenta",command=self.update_all_resolutions)
+        self.updateResolutionsButton.grid(row=3, column=0, padx=5, pady=(5, 5), sticky="nsew")
+        
+        self.spacer = ctk.CTkLabel(self, text="")
+        self.spacer.grid(row=4, column=0, columnspan=2, pady = (0, 0))
+        
+        self.desktopModeButton = ctk.CTkButton(self, text="Desktop Mode (All Monitors)", command=self.apply_desktop_mode)
+        self.desktopModeButton.grid(row=5, column=0, padx=5, pady=(0, 5), sticky="nsew")
+        
+        self.iracingModeButton = ctk.CTkButton(self, text="iRacing Mode (All Monitors)", command=self.apply_iracing_mode)
+        self.iracingModeButton.grid(row=5, column=1, padx=5, pady=(0, 5), sticky="nsew")
 
         self.tray_icon = None
 
@@ -165,10 +180,9 @@ class App(ctk.CTk):
         self.update_resolutions(self.monitor_var.get())
 
     def update_all_resolutions(self):
-        """Aktualisiert alle Auflösungen, speichert sie in JSON und aktualisiert die Combobox."""
         self.resolutions = collect_resolutions()  # neu abfragen und speichern
         self.update_resolutions(self.monitor_var.get())  # Combobox neu füllen
-        messagebox.showinfo("Auflösungen aktualisiert", "Alle Monitorauflösungen wurden neu geladen!")
+        messagebox.showinfo("Resolution Update", "All Monitor resolutions have been updated.")
 
 
     def update_resolutions(self, monitor_name):
@@ -193,14 +207,14 @@ class App(ctk.CTk):
             w, h = self.res_var.get().split("x")
             w, h, hz = int(w), int(h), int(self.hz_var.get())
         except:
-            messagebox.showerror("Fehler", "Ungültige Auswahl!")
+            messagebox.showerror("Error", "Invalid selection!")
             return
 
         result = set_monitor_resolution(monitor, w, h, hz)
         if result == 0:
-            messagebox.showinfo("Erfolg", f"Einstellung übernommen für:\n{monitor}")
+            messagebox.showinfo("Success", f"Settings applied for:\n{monitor}")
         else:
-            messagebox.showerror("Fehler", f"Windows Fehlercode: {result}")
+            messagebox.showerror("Error", f"Windows error code: {result}")
 
     def apply_iracing_mode(self):
         width, height, hz = 1920, 1080, 165
@@ -210,7 +224,7 @@ class App(ctk.CTk):
             if result != 0:
                 errors.append((monitor, result))
         if not errors:
-            messagebox.showinfo("iRacing Mode", f"Alle Monitore eingestellt:\n{width}x{height} @ {hz} Hz")
+            messagebox.showinfo("iRacing Mode", f"All monitors set to:\n{width}x{height} @ {hz} Hz")
         else:
             msg = "\n".join([f"{m}: Fehler {e}" for m, e in errors])
             messagebox.showerror("Fehler bei einigen Monitoren", msg)
@@ -223,10 +237,10 @@ class App(ctk.CTk):
             if result != 0:
                 errors.append((monitor, result))
         if not errors:
-            messagebox.showinfo("Desktop Mode", f"Alle Monitore eingestellt:\n{width}x{height} @ {hz} Hz")
+            messagebox.showinfo("Desktop Mode", f"All monitors set to:\n{width}x{height} @ {hz} Hz")
         else:
-            msg = "\n".join([f"{m}: Fehler {e}" for m, e in errors])
-            messagebox.showerror("Fehler bei einigen Monitoren", msg)
+            msg = "\n".join([f"{m}: Error {e}" for m, e in errors])
+            messagebox.showerror("Error on some monitors", msg)
 
     def create_tray_icon(self):
         image = Image.new('RGB', (64, 64), color=(30, 144, 255))
@@ -236,8 +250,8 @@ class App(ctk.CTk):
         menu = (
             item("Desktop Mode 2560x1440 165Hz", lambda: self.apply_desktop_mode()),
             item("iRacing Mode 1920x1080 165Hz", lambda: self.apply_iracing_mode()),
-            item("Fenster öffnen", lambda: self.show_window()),
-            item("Beenden", lambda: self.close_all())
+            item("Open Window", lambda: self.show_window()),
+            item("Exit", lambda: self.close_all())
         )
 
         self.tray_icon = pystray.Icon("monitor_tool", image, "Monitor Tool", menu,
