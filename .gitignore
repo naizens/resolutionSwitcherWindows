@@ -1,1 +1,17 @@
 monitor_resolutions.json
+.\venv
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.idea/
+.vscode/
+logs/
+output/
+temp/
+*.log
+*.tmp
+coverage
+html
+cov/
+.ipynb_checkpoints/
