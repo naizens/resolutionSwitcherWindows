@@ -180,8 +180,8 @@ class App(ctk.CTk):
         self.update_resolutions(self.monitor_var.get())
 
     def update_all_resolutions(self):
-        self.resolutions = collect_resolutions()  # neu abfragen und speichern
-        self.update_resolutions(self.monitor_var.get())  # Combobox neu füllen
+        self.resolutions = collect_resolutions()
+        self.update_resolutions(self.monitor_var.get())
         messagebox.showinfo("Resolution Update", "All Monitor resolutions have been updated.")
 
 
