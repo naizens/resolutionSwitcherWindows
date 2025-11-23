@@ -29,5 +29,5 @@ pip install -r requirements.txt
 ```
 2. Create the build via.:
 ```bash
-pyinstaller --onefile main.py
+pyinstaller --onefile --name ResolutionSwitcher --noconsole main.py
 ```
