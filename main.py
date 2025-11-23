@@ -138,22 +138,22 @@ class App(ctk.CTk):
         if not self.resolutions:
             self.resolutions = collect_resolutions()
 
-        self.chooseMonitorLabel = ctk.CTkLabel(self, text="Monitor auswählen:")
-        self.chooseMonitorLabel.grid(row=0, column=0, padx=0, pady=(5, 5), sticky="nsew")
+        self.chooseMonitorLabel = ctk.CTkLabel(self, text="Choose Monitor:")
+        self.chooseMonitorLabel.grid(row=0, column=0, padx=10, pady=(5, 5), sticky="nsw")
         self.combo_monitor = ctk.CTkComboBox(
             self, values=self.monitor_list, variable=self.monitor_var, width=300,
             command=self.update_resolutions
         )
-        self.combo_monitor.grid(row=0, column=1, padx=5, pady=(5, 5), sticky="nsew")
+        self.combo_monitor.grid(row=0, column=1, padx=10, pady=(5, 5), sticky="nsw")
 
-        self.chooseResLabel = ctk.CTkLabel(self, text="Auflösung:")
-        self.chooseResLabel.grid(row=1, column=0, padx=0, pady=(5, 5), sticky="nsew")
+        self.chooseResLabel = ctk.CTkLabel(self, text="Resolutions:")
+        self.chooseResLabel.grid(row=1, column=0, padx=10, pady=(5, 5), sticky="nsw")
         self.res_var = ctk.StringVar()
         self.combo_res = ctk.CTkComboBox(self, values=[], variable=self.res_var, width=300)
         self.combo_res.grid(row=1, column=1, padx=5, pady=(5, 5), sticky="nsew")
 
-        self.chooseHzLabel = ctk.CTkLabel(self, text="Bildwiederholrate (Hz):")
-        self.chooseHzLabel.grid(row=2, column=0, padx=0, pady=(5, 5), sticky="nsew")
+        self.chooseHzLabel = ctk.CTkLabel(self, text="Refreshrate (Hz):")
+        self.chooseHzLabel.grid(row=2, column=0, padx=10, pady=(5, 5), sticky="nsw")
         self.hz_var = ctk.StringVar()
         self.combo_hz = ctk.CTkComboBox(self, values=[], variable=self.hz_var, width=300)
         self.combo_hz.grid(row=2, column=1, padx=5, pady=(5, 5), sticky="nsew")
