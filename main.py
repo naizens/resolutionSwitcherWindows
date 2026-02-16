@@ -7,6 +7,7 @@ from pystray import MenuItem as item
 from PIL import Image, ImageDraw
 import json
 import os
+import sys
 
 
 class DISPLAY_DEVICE(ctypes.Structure):
@@ -53,12 +54,22 @@ class DEVMODE(ctypes.Structure):
         ("dmPanningHeight", ctypes.c_ulong),
     ]
 
+# ==================== CONSTANTS ====================
+
+user32 = ctypes.windll.user32
+
+DISPLAY_DEVICE_ACTIVE = 1
+DISP_CHANGE_SUCCESSFUL = 0
+DM_PELSWIDTH = 0x80000
+DM_PELSHEIGHT = 0x100000
+DM_DISPLAYFREQUENCY = 0x400000
+
+_base_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+RES_FILE = os.path.join(_base_dir, "monitor_resolutions.json")
+
 # ==================== FUNCTIONS ====================
 
-RES_FILE = "monitor_resolutions.json"
-
 def list_monitors():
-    user32 = ctypes.windll.user32
     i = 0
     monitors = []
     while True:
@@ -66,27 +77,22 @@ def list_monitors():
         display.cb = ctypes.sizeof(display)
         if not user32.EnumDisplayDevicesW(None, i, ctypes.byref(display), 0):
             break
-        if display.StateFlags & 1:
+        if display.StateFlags & DISPLAY_DEVICE_ACTIVE:
             monitors.append(display.DeviceName)
         i += 1
     return monitors
 
 def set_monitor_resolution(device_name, width, height, hz):
-    user32 = ctypes.windll.user32
     dm = DEVMODE()
     dm.dmSize = ctypes.sizeof(DEVMODE)
     dm.dmPelsWidth = width
     dm.dmPelsHeight = height
     dm.dmDisplayFrequency = hz
-    DM_PELSWIDTH = 0x80000
-    DM_PELSHEIGHT = 0x100000
-    DM_DISPLAYFREQUENCY = 0x400000
     dm.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY
     result = user32.ChangeDisplaySettingsExW(device_name, ctypes.byref(dm), None, 0, None)
     return result
 
 def get_supported_resolutions(device_name):
-    user32 = ctypes.windll.user32
     i = 0
     modes = set()
     devmode = DEVMODE()
@@ -113,8 +119,10 @@ def collect_resolutions():
     res_dict = {}
     for m in monitors:
         modes = get_supported_resolutions(m)
-        modes = sorted({(w, h) for w, h, hz in modes}, key=lambda x: (x[0], x[1]), reverse=True)
-        res_dict[m] = modes
+        res_dict[m] = {
+            "resolutions": sorted({(w, h) for w, h, _ in modes}, key=lambda x: (x[0], x[1]), reverse=True),
+            "refresh_rates": sorted({hz for _, _, hz in modes}, reverse=True),
+        }
     save_resolutions(res_dict)
     return res_dict
 
@@ -125,14 +133,19 @@ class App(ctk.CTk):
 
         self.title("Monitor Tool")
         self.geometry("460x220")
+        self.resizable(False, False)
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(6, weight=1)
 
-
         self.monitor_list = list_monitors()
-        self.monitor_var = ctk.StringVar(value=self.monitor_list[0] if self.monitor_list else "")
+        if not self.monitor_list:
+            messagebox.showerror("Error", "No monitors detected!")
+            self.destroy()
+            return
+
+        self.monitor_var = ctk.StringVar(value=self.monitor_list[0])
 
         self.resolutions = load_resolutions()
         if not self.resolutions:
@@ -160,37 +173,41 @@ class App(ctk.CTk):
 
         self.applySingleButton = ctk.CTkButton(self, text="Apply Single", command=self.apply_single)
         self.applySingleButton.grid(row=3, column=1, padx=5, pady=(5, 5), sticky="nsew")
-        
-        self.updateResolutionsButton = ctk.CTkButton(self, text="Update Resolutions", fg_color="purple", hover_color="darkmagenta",command=self.update_all_resolutions)
+
+        self.updateResolutionsButton = ctk.CTkButton(self, text="Update Resolutions", fg_color="purple", hover_color="darkmagenta", command=self.update_all_resolutions)
         self.updateResolutionsButton.grid(row=3, column=0, padx=5, pady=(5, 5), sticky="nsew")
-        
+
         self.spacer = ctk.CTkLabel(self, text="")
-        self.spacer.grid(row=4, column=0, columnspan=2, pady = (0, 0))
-        
+        self.spacer.grid(row=4, column=0, columnspan=2, pady=(0, 0))
+
         self.desktopModeButton = ctk.CTkButton(self, text="Desktop Mode (All Monitors)", command=self.apply_desktop_mode)
         self.desktopModeButton.grid(row=5, column=0, padx=5, pady=(0, 5), sticky="nsew")
-        
+
         self.iracingModeButton = ctk.CTkButton(self, text="iRacing Mode (All Monitors)", command=self.apply_iracing_mode)
         self.iracingModeButton.grid(row=5, column=1, padx=5, pady=(0, 5), sticky="nsew")
 
         self.tray_icon = None
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
-        
+
         self.update_resolutions(self.monitor_var.get())
 
     def update_all_resolutions(self):
         self.resolutions = collect_resolutions()
         self.update_resolutions(self.monitor_var.get())
-        messagebox.showinfo("Resolution Update", "All Monitor resolutions have been updated.")
-
+        messagebox.showinfo("Resolution Update", "All monitor resolutions have been updated.")
 
     def update_resolutions(self, monitor_name):
-        modes = self.resolutions.get(monitor_name, [])
-        
-        hz_set = sorted({hz for w, h, hz in get_supported_resolutions(monitor_name)}, reverse=True)
+        monitor_data = self.resolutions.get(monitor_name, {})
 
-        res_str = [f"{w}x{h}" for w, h in modes]
+        if isinstance(monitor_data, list):
+            res_list = monitor_data
+            hz_set = sorted({hz for _, _, hz in get_supported_resolutions(monitor_name)}, reverse=True)
+        else:
+            res_list = monitor_data.get("resolutions", [])
+            hz_set = monitor_data.get("refresh_rates", [])
+
+        res_str = [f"{w}x{h}" for w, h in res_list]
         hz_str = [str(hz) for hz in hz_set]
 
         self.combo_res.configure(values=res_str)
@@ -206,41 +223,33 @@ class App(ctk.CTk):
         try:
             w, h = self.res_var.get().split("x")
             w, h, hz = int(w), int(h), int(self.hz_var.get())
-        except:
+        except (ValueError, AttributeError):
             messagebox.showerror("Error", "Invalid selection!")
             return
 
         result = set_monitor_resolution(monitor, w, h, hz)
-        if result == 0:
+        if result == DISP_CHANGE_SUCCESSFUL:
             messagebox.showinfo("Success", f"Settings applied for:\n{monitor}")
         else:
             messagebox.showerror("Error", f"Windows error code: {result}")
 
-    def apply_iracing_mode(self):
-        width, height, hz = 1920, 1080, 165
+    def _apply_preset(self, width, height, hz, preset_name):
         errors = []
         for monitor in self.monitor_list:
             result = set_monitor_resolution(monitor, width, height, hz)
-            if result != 0:
+            if result != DISP_CHANGE_SUCCESSFUL:
                 errors.append((monitor, result))
         if not errors:
-            messagebox.showinfo("iRacing Mode", f"All monitors set to:\n{width}x{height} @ {hz} Hz")
-        else:
-            msg = "\n".join([f"{m}: Fehler {e}" for m, e in errors])
-            messagebox.showerror("Fehler bei einigen Monitoren", msg)
-
-    def apply_desktop_mode(self):
-        width, height, hz = 2560, 1440, 165
-        errors = []
-        for monitor in self.monitor_list:
-            result = set_monitor_resolution(monitor, width, height, hz)
-            if result != 0:
-                errors.append((monitor, result))
-        if not errors:
-            messagebox.showinfo("Desktop Mode", f"All monitors set to:\n{width}x{height} @ {hz} Hz")
+            messagebox.showinfo(preset_name, f"All monitors set to:\n{width}x{height} @ {hz} Hz")
         else:
             msg = "\n".join([f"{m}: Error {e}" for m, e in errors])
             messagebox.showerror("Error on some monitors", msg)
+
+    def apply_iracing_mode(self):
+        self._apply_preset(1920, 1080, 165, "iRacing Mode")
+
+    def apply_desktop_mode(self):
+        self._apply_preset(2560, 1440, 165, "Desktop Mode")
 
     def create_tray_icon(self):
         image = Image.new('RGB', (64, 64), color=(30, 144, 255))
@@ -263,16 +272,20 @@ class App(ctk.CTk):
 
     def hide_to_tray(self):
         self.withdraw()
+        if self.tray_icon:
+            self.tray_icon.stop()
         threading.Thread(target=self.start_tray, daemon=True).start()
 
     def show_window(self):
         if self.tray_icon:
             self.tray_icon.stop()
+            self.tray_icon = None
         self.deiconify()
 
     def close_all(self):
         if self.tray_icon:
             self.tray_icon.stop()
+            self.tray_icon = None
         self.destroy()
 
     def on_close(self):
